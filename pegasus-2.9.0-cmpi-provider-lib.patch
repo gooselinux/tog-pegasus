@@ -1,0 +1,12 @@
+diff -up pegasus/src/Pegasus/Config/FixedPropertyTableLinux.h_old pegasus/src/Pegasus/Config/FixedPropertyTableLinux.h
+--- pegasus/src/Pegasus/Config/FixedPropertyTableLinux.h_old	2008-12-02 10:01:24.000000000 +0100
++++ pegasus/src/Pegasus/Config/FixedPropertyTableLinux.h	2009-03-18 15:35:41.000000000 +0100
+@@ -61,7 +61,7 @@
+     {"crlStore",             PEGASUS_SSL_SERVER_CRL},
+ #  endif
+     {"repositoryDir",        PEGASUS_REPOSITORY_DIR},
+-    {"providerDir", PEGASUS_PROVIDER_LIB_DIR ":/usr/" PEGASUS_ARCH_LIB "/cmpi"},
++    {"providerDir",          PEGASUS_PROVIDER_LIB_DIR ":" PEGASUS_DEST_LIB_DIR "/cmpi"},
+     {"providerManagerDir",   PEGASUS_PROVIDER_MANAGER_LIB_DIR},
+ # else /* PEGASUS_OVERRIDE_DEFAULT_RELEASE_DIRS */
+     {"traceFilePath",       "/var/opt/tog-pegasus/cache/trace/cimserver.trc"},

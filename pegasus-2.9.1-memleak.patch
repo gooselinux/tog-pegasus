@@ -1,0 +1,595 @@
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.cpp.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.cpp
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.cpp.orig	2008-12-02 10:01:49.000000000 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.cpp	2010-03-04 12:39:48.004067946 +0100
+@@ -33,6 +33,7 @@
+ 
+ #include "CMPI_Object.h"
+ #include "CMPI_Ftabs.h"
++#include "CMPI_Array.h"
+ #include <Pegasus/Common/Tracer.h>
+ #include <string.h>
+ 
+@@ -48,16 +49,92 @@ extern "C"
+             TRC_CMPIPROVIDERINTERFACE,
+             "CMPI_Array:arrayRelease()");
+ 
+-        CMPIData *dta = (CMPIData*)eArray->hdl;
+-        if (dta)
++        CMPIStatus rrc = {CMPI_RC_OK,NULL};
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
+         {
+-            delete[] dta;
+-            reinterpret_cast<CMPI_Object*>(eArray)->unlinkAndDelete();
+             PEG_METHOD_EXIT();
+-            CMReturn(CMPI_RC_OK);
++            CMReturn(CMPI_RC_ERR_INVALID_HANDLE);
+         }
++        CMPIData* dta=(CMPIData*)arr->hdl;
++        if (!dta)
++        {
++            PEG_METHOD_EXIT();
++            CMReturn(CMPI_RC_ERR_INVALID_HANDLE);
++        }
++
++        if (arr->isCloned == true)
++        {
++            for (unsigned int i=1; i<=dta->value.uint32; i++)
++            {
++                if (dta->type & CMPI_ENC && dta[i].state==CMPI_goodValue)
++                {
++                    switch (dta[i].type)
++                    {
++                        case CMPI_instance:
++                            if (dta[i].value.inst)
++                            {
++                                rrc = (dta[i].value.inst)->ft->release(
++                                    dta[i].value.inst);
++                            }
++                            break;
++                        case CMPI_ref:
++                            if (dta[i].value.ref)
++                            {
++                                rrc = (dta[i].value.ref)->ft->release(
++                                    dta[i].value.ref);
++                            }
++                            break;
++                        case CMPI_args:
++                            if (dta[i].value.args)
++                            {
++                                rrc = (dta[i].value.args)->ft->release(
++                                    dta[i].value.args);
++                            }
++                            break;
++                        case CMPI_dateTime:
++                            if (dta[i].value.dateTime)
++                            {
++                                rrc = (dta[i].value.dateTime)->ft->release(
++                                    dta[i].value.dateTime);
++                            }
++                            break;
++                        case CMPI_enumeration:
++                            if (dta[i].value.Enum)
++                            {
++                                rrc = (dta[i].value.Enum)->ft->release(
++                                    dta[i].value.Enum);
++                            }
++                            break;
++                        case CMPI_filter:
++                            if (dta[i].value.filter)
++                            {
++                                rrc = (dta[i].value.filter)->ft->release(
++                                    dta[i].value.filter);
++                            }
++                            break;
++                        case CMPI_charsptr:
++                            if (dta[i].value.dataPtr.ptr)
++                            {
++                                free(dta[i].value.dataPtr.ptr);
++                            }
++                            break;
++                        case CMPI_string:
++                            if (dta[i].value.string)
++                            {
++                                rrc = (dta[i].value.string)->ft->release(
++                                    dta[i].value.string);
++                            }
++                            break;
++                    }
++                }
++            }
++        }
++        delete[] dta;
++        delete arr;
++        reinterpret_cast<CMPI_Object*>(eArray)->unlinkAndDelete();
+         PEG_METHOD_EXIT();
+-        CMReturn(CMPI_RC_ERR_INVALID_HANDLE);
++        CMReturn(CMPI_RC_OK);
+     }
+ 
+     PEGASUS_STATIC CMPIArray* arrayClone(
+@@ -67,8 +144,14 @@ extern "C"
+         PEG_METHOD_ENTER(
+             TRC_CMPIPROVIDERINTERFACE,
+             "CMPI_Array:arrayClone()");
+-        CMPIData* dta=(CMPIData*)eArray->hdl;
+-
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
++        {
++            CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
++            PEG_METHOD_EXIT();
++            return NULL;
++        }
++        CMPIData* dta=(CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
+@@ -76,7 +159,8 @@ extern "C"
+             return NULL;
+         }
+         CMPIData* nDta = new CMPIData[dta->value.uint32+1];
+-        CMPI_Object* obj = new CMPI_Object(nDta);
++        CMPI_Array* nArr = new CMPI_Array(nDta, true);
++        CMPI_Object* obj = new CMPI_Object(nArr);
+         obj->unlink();
+         CMPIArray* nArray = reinterpret_cast<CMPIArray*>(obj);
+         CMPIStatus rrc = {CMPI_RC_OK,NULL};
+@@ -98,67 +182,99 @@ extern "C"
+             }
+             if (dta->type & CMPI_ENC && dta[i].state==CMPI_goodValue)
+             {
+-                if ((dta[i].type == CMPI_instance) && (dta[i].value.inst))
+-                {
+-                    nDta[i].value.inst =
+-                        (dta[i].value.inst)->ft->clone(dta[i].value.inst,&rrc);
+-                }
+-                if ((dta[i].type == CMPI_ref) && (dta[i].value.ref))
+-                {
+-                    nDta[i].value.ref =
+-                        (dta[i].value.ref)->ft->clone(dta[i].value.ref,&rrc);
+-                }
+-                if ((dta[i].type == CMPI_args) && (dta[i].value.args))
+-                {
+-                    nDta[i].value.args =
+-                        (dta[i].value.args)->ft->clone(dta[i].value.args,&rrc);
+-                }
+-                if ((dta[i].type == CMPI_dateTime) && (dta[i].value.dateTime))
+-                {
+-                    nDta[i].value.dateTime =
+-                        (dta[i].value.dateTime)->ft->clone(
+-                            dta[i].value.dateTime,
+-                            &rrc);
+-                }
+-                if ((dta[i].type == CMPI_enumeration) && (dta[i].value.Enum))
+-                {
+-                    nDta[i].value.Enum =
+-                        (dta[i].value.Enum)->ft->clone(dta[i].value.Enum,&rrc);
+-                }
+-                if ((dta[i].type == CMPI_filter) && (dta[i].value.filter))
+-                {
+-                    nDta[i].value.filter =
+-                        (dta[i].value.filter)->ft->clone(
+-                            dta[i].value.filter,
+-                            &rrc);
+-                }
+-                if ((dta[i].type == CMPI_charsptr) &&
+-                    (dta[i].value.dataPtr.length>0))
+-                {
+-                    nDta[i].value.dataPtr.length = dta[i].value.dataPtr.length;
+-                    nDta[i].value.dataPtr.ptr =
+-                        malloc(nDta[i].value.dataPtr.length);
+-                    if (nDta[i].value.dataPtr.ptr == NULL)
+-                    {
+-                        arrayRelease(nArray);
+-                        if (rc)
++                switch (dta[i].type)
++		{
++                    case CMPI_instance:
++                        if (dta[i].value.inst)
+                         {
+-                            *rc=rrc;
++                            nDta[i].value.inst =
++                                (dta[i].value.inst)->ft->clone(
++                                    dta[i].value.inst,
++                                    &rrc);
+                         }
+-                        return NULL;
+-                    }
+-                    memcpy(
+-                        nDta[i].value.dataPtr.ptr,
+-                        dta[i].value.dataPtr.ptr,
+-                        dta[i].value.dataPtr.length);
+-                }
++                        break;
++          
++                    case CMPI_ref:
++                        if (dta[i].value.ref)
++                        {
++                            nDta[i].value.ref = (dta[i].value.ref)->ft->clone(
++                                dta[i].value.ref,
++                                &rrc);
++                        }
++                        break;
+ 
+-                if ((dta[i].type == CMPI_string) && (dta[i].value.string))
+-                {
+-                    nDta[i].value.string =
+-                        (dta[i].value.string)->ft->clone(
+-                            dta[i].value.string,
+-                            &rrc);
++                    case CMPI_args:
++                        if (dta[i].value.args)
++                        {
++                            nDta[i].value.args =
++                                (dta[i].value.args)->ft->clone(
++                                    dta[i].value.args,
++                                    &rrc);
++                        }
++                        break;
++
++                    case CMPI_dateTime:
++                        if (dta[i].value.dateTime)
++                        {
++                            nDta[i].value.dateTime =
++                                (dta[i].value.dateTime)->ft->clone(
++                                    dta[i].value.dateTime,
++                                    &rrc);
++                        }
++                        break;
++
++                    case CMPI_enumeration:
++                        if (dta[i].value.Enum)
++                        {
++                            nDta[i].value.Enum =
++                                (dta[i].value.Enum)->ft->clone(
++                                    dta[i].value.Enum,
++                                    &rrc);
++                        }
++                        break;
++
++                    case CMPI_filter:
++                        if (dta[i].value.filter)
++                        {
++                            nDta[i].value.filter =
++                                (dta[i].value.filter)->ft->clone(
++                                    dta[i].value.filter,
++                                    &rrc);
++                        }
++                        break;
++
++                    case CMPI_charsptr:
++                        if (dta[i].value.dataPtr.length>0)
++                        {
++                            nDta[i].value.dataPtr.length = 
++                                dta[i].value.dataPtr.length;
++                            nDta[i].value.dataPtr.ptr =
++                                malloc(nDta[i].value.dataPtr.length);
++                            if (nDta[i].value.dataPtr.ptr == NULL)
++                            {
++                                arrayRelease(nArray);
++                                if (rc)
++                                {
++                                    *rc=rrc;
++                                }
++                                return NULL;
++                            }
++                            memcpy(
++                                nDta[i].value.dataPtr.ptr,
++                                dta[i].value.dataPtr.ptr,
++                                dta[i].value.dataPtr.length);
++                        }
++                        break;
++
++                    case CMPI_string:
++                        if (dta[i].value.string)
++                        {
++                            nDta[i].value.string =
++                                (dta[i].value.string)->ft->clone(
++                                    dta[i].value.string,
++                                    &rrc);
++                        }
++                        break;
+                 }
+                 if (rrc.rc)
+                 {
+@@ -172,6 +288,7 @@ extern "C"
+                 }
+             }
+         }
++
+         CMSetStatus(rc,CMPI_RC_OK);
+         PEG_METHOD_EXIT();
+         return nArray;
+@@ -182,8 +299,15 @@ extern "C"
+         CMPICount pos,
+         CMPIStatus* rc)
+     {
+-        CMPIData *dta = (CMPIData*)eArray->hdl;
+         CMPIData data = {0,CMPI_nullValue,{0}};
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
++        {
++            CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
++            return data;
++        }
++
++        CMPIData *dta = (CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
+@@ -219,7 +343,14 @@ extern "C"
+         PEG_METHOD_ENTER(
+             TRC_CMPIPROVIDERINTERFACE,
+             "CMPI_Array:arraySetElementAt()");
+-        CMPIData *dta = (CMPIData*)eArray->hdl;
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
++        {
++            PEG_METHOD_EXIT();
++            CMReturn(CMPI_RC_ERR_INVALID_HANDLE);
++        }
++
++        CMPIData *dta = (CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             PEG_METHOD_EXIT();
+@@ -232,7 +363,13 @@ extern "C"
+         }
+         if (pos<dta->value.uint32)
+         {
+-            if ((dta->type&~CMPI_ARRAY)==type)
++            if (type == CMPI_null)
++            {
++                dta[pos+1].state=CMPI_nullValue;
++                PEG_METHOD_EXIT();
++                CMReturn(CMPI_RC_OK);
++            }
++            else if ((dta->type&~CMPI_ARRAY)==type)
+             {
+                 dta[pos+1].state=CMPI_goodValue;
+                 if (type == CMPI_chars)
+@@ -270,7 +407,13 @@ extern "C"
+         const CMPIArray* eArray,
+         CMPIStatus* rc)
+     {
+-        CMPIData *dta = (CMPIData*)eArray->hdl;
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
++        {
++            CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
++            return 0;
++        }
++        CMPIData *dta = (CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
+@@ -284,7 +427,13 @@ extern "C"
+         const CMPIArray* eArray,
+         CMPIStatus* rc)
+     {
+-        CMPIData *dta = (CMPIData*)eArray->hdl;
++        CMPI_Array *arr = (CMPI_Array*)eArray->hdl;
++        if (!arr)
++        {
++            CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
++            return 0;
++        }
++        CMPIData *dta = (CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             CMSetStatus(rc, CMPI_RC_ERR_INVALID_HANDLE);
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.h.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.h
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.h.orig	2010-03-04 12:41:54.670047252 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Array.h	2010-03-04 12:41:47.082995336 +0100
+@@ -0,0 +1,52 @@
++//%LICENSE////////////////////////////////////////////////////////////////
++//
++// Licensed to The Open Group (TOG) under one or more contributor license
++// agreements.  Refer to the OpenPegasusNOTICE.txt file distributed with
++// this work for additional information regarding copyright ownership.
++// Each contributor licenses this file to you under the OpenPegasus Open
++// Source License; you may not use this file except in compliance with the
++// License.
++//
++// Permission is hereby granted, free of charge, to any person obtaining a
++// copy of this software and associated documentation files (the "Software"),
++// to deal in the Software without restriction, including without limitation
++// the rights to use, copy, modify, merge, publish, distribute, sublicense,
++// and/or sell copies of the Software, and to permit persons to whom the
++// Software is furnished to do so, subject to the following conditions:
++//
++// The above copyright notice and this permission notice shall be included
++// in all copies or substantial portions of the Software.
++//
++// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
++// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
++// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
++// CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
++// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
++// SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
++//
++//////////////////////////////////////////////////////////////////////////
++//
++//%/////////////////////////////////////////////////////////////////////////////
++
++#ifndef _CMPI_Array_H_
++#define _CMPI_Array_H_
++
++#include <Pegasus/Provider/CMPI/cmpift.h>
++
++PEGASUS_NAMESPACE_BEGIN
++
++struct CMPI_Array : CMPIArray
++{
++    CMPIBoolean isCloned;
++    CMPI_Array(CMPIData *data, CMPIBoolean isCloned_ = false)
++        : isCloned(isCloned_)
++    {
++        hdl = data;
++    }
++};
++
++PEGASUS_NAMESPACE_END
++
++#endif
++
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_BrokerEnc.cpp.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_BrokerEnc.cpp
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_BrokerEnc.cpp.orig	2010-03-04 12:42:17.603994935 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_BrokerEnc.cpp	2010-03-04 12:43:17.228995399 +0100
+@@ -36,6 +36,7 @@
+ #include "CMPI_Ftabs.h"
+ #include "CMPI_String.h"
+ #include "CMPI_SelectExp.h"
++#include "CMPI_Array.h"
+ #include "CMPIMsgHandleManager.h"
+ 
+ #include <Pegasus/Common/CIMName.h>
+@@ -421,8 +422,9 @@ extern "C"
+             dta[i].state=CMPI_nullValue;
+             dta[i].value.uint64=0;
+         }
++        CMPI_Array *arr = new CMPI_Array(dta);
+         CMPIArray* cmpiArray =
+-            reinterpret_cast<CMPIArray*>(new CMPI_Object(dta));
++            reinterpret_cast<CMPIArray*>(new CMPI_Object(arr));
+         PEG_METHOD_EXIT();
+         return cmpiArray;
+     }
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Error.cpp.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Error.cpp
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Error.cpp.orig	2010-03-04 12:43:32.417975752 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Error.cpp	2010-03-04 12:46:17.327995000 +0100
+@@ -493,9 +493,10 @@ extern "C"
+             String s = pgRecommendedActions[i-1];
+             dta[i].value.string=string2CMPIString(s);
+         }
++        CMPI_Array *arr = new CMPI_Array(dta);
+         CMSetStatus(rc,CMPI_RC_OK);
+         PEG_METHOD_EXIT();
+-        return reinterpret_cast<CMPIArray*>(new CMPI_Object(dta));
++        return reinterpret_cast<CMPIArray*>(new CMPI_Object(arr));
+     }
+ 
+     static CMPIString* errGetErrorSource(const CMPIError* eErr, CMPIStatus* rc)
+@@ -746,7 +747,7 @@ extern "C"
+         }
+         CMSetStatus(rc,CMPI_RC_OK);
+         CMPIArray* cmpiArray =
+-            reinterpret_cast<CMPIArray*>(new CMPI_Object(dta));
++            reinterpret_cast<CMPIArray*>(new CMPI_Object(new CMPI_Array(dta)));
+         PEG_METHOD_EXIT();
+         return cmpiArray;
+     }
+@@ -857,8 +858,13 @@ extern "C"
+         }
+ 
+         Array<String> pgRecommendedActions;
+-
+-        CMPIData* dta=(CMPIData*)recommendedActions->hdl;
++        CMPI_Array* arr = (CMPI_Array*)recommendedActions->hdl;
++        if (!arr)
++        {
++            PEG_METHOD_EXIT();
++            CMReturn(CMPI_RC_ERR_INVALID_PARAMETER);
++        }
++        CMPIData* dta=(CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             PEG_METHOD_EXIT();
+@@ -1064,8 +1070,13 @@ extern "C"
+         }
+ 
+         Array<String> pgMessageArguments;
+-
+-        CMPIData* dta=(CMPIData*)messageArguments->hdl;
++        CMPI_Array* arr = (CMPI_Array*)messageArguments->hdl;
++        if (!arr)
++        {
++            PEG_METHOD_EXIT();
++            CMReturn(CMPI_RC_ERR_INVALID_PARAMETER);
++        }
++        CMPIData* dta=(CMPIData*)arr->hdl;
+         if (!dta)
+         {
+             PEG_METHOD_EXIT();
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.cpp.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.cpp
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.cpp.orig	2010-03-04 12:46:28.195975729 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.cpp	2010-03-04 12:47:37.775994894 +0100
+@@ -96,10 +96,10 @@ CMPI_Object::CMPI_Object(Array<CIMParamV
+     ftab = CMPI_Args_Ftab;
+ }
+ 
+-CMPI_Object::CMPI_Object(CMPIData *dta)
++CMPI_Object::CMPI_Object(CMPI_Array *arr)
+ {
+     CMPI_ThreadContext::addObject(this);
+-    hdl = (void*)dta;
++    hdl = (void*)arr;
+     ftab = CMPI_Array_Ftab;
+ }
+ 
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.h.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.h
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.h.orig	2010-03-04 12:47:43.410975742 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Object.h	2010-03-04 12:48:24.504973816 +0100
+@@ -45,6 +45,7 @@
+ 
+ #include "CMPI_ThreadContext.h"
+ #include "CMPI_Enumeration.h"
++#include "CMPI_Array.h"
+ 
+ PEGASUS_NAMESPACE_BEGIN
+ 
+@@ -72,7 +73,7 @@ public:
+     CMPI_Object(const String&);
+     CMPI_Object(const char*);
+     CMPI_Object(Array<CIMParamValue>*);
+-    CMPI_Object(CMPIData*);
++    CMPI_Object(CMPI_Array*);
+     CMPI_Object(CMPI_Object*);
+     CMPI_Object(CMPISelectCond*);
+     CMPI_Object(CMPISubCond*);
+diff -up pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Value.cpp.orig pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Value.cpp
+--- pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Value.cpp.orig	2010-03-04 12:48:32.957037557 +0100
++++ pegasus/src/Pegasus/ProviderManager2/CMPI/CMPI_Value.cpp	2010-03-04 12:49:17.187985133 +0100
+@@ -140,7 +140,7 @@ CIMValue value2CIMValue(const CMPIValue*
+         }
+         // When data is not NULL and data->array is also set
+         CMPIArray *ar=data->array;
+-        CMPIData *aData=(CMPIData*)ar->hdl;
++        CMPIData *aData=(CMPIData*)((CMPI_Array*)ar->hdl)->hdl;
+ 
+         //Get the type of the elements in the array
+         CMPIType aType=aData->type&~CMPI_ARRAY;
+@@ -533,7 +533,7 @@ CMPIrc value2CMPIData(const CIMValue& v,
+                     return CMPI_RC_ERR_NOT_SUPPORTED;
+             }
+         data->value.array = reinterpret_cast<CMPIArray*>(
+-        new CMPI_Object(aData-1));
++        new CMPI_Object(new CMPI_Array(aData-1)));
+     }  // end of array porocessing
+ 
+     //Start of non-array processing
+diff -up pegasus/src/Providers/sample/CMPI/InstanceProvider/cmpiInstanceProvider.c.orig pegasus/src/Providers/sample/CMPI/InstanceProvider/cmpiInstanceProvider.c
+--- pegasus/src/Providers/sample/CMPI/InstanceProvider/cmpiInstanceProvider.c.orig	2010-03-04 12:50:18.384975858 +0100
++++ pegasus/src/Providers/sample/CMPI/InstanceProvider/cmpiInstanceProvider.c	2010-03-04 12:51:04.311984323 +0100
+@@ -381,6 +381,7 @@ CMPIStatus InstProvModifyInstance  (
+                 }
+             }
+         }
++        CMRelease(inst);
+         /*If match fails, throw exception, as instance to be mmodified is not
+           found */
+         if(!flag)
+@@ -431,6 +432,11 @@ CMPIStatus InstProvDeleteInstance (
+                 {
+                     flag =1;
+                     CMRelease(retInst.value.inst);
++                    CMSetArrayElementAt(
++                        clone_arr_ptr,
++                        j,
++                        &retInst.value.inst,
++                        CMPI_null);
+                     valid[j] = 0;
+                 }
+             }

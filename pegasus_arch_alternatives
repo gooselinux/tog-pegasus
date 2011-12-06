@@ -1,0 +1,158 @@
+#!/bin/bash
+#
+#  Script to manage tog-pegasus alternatives for multi-lib platforms
+#
+#  Jason Vas Dias<jvdias@redhat.com>, Red Hat, Inc. June 2006
+#
+#  Usage:
+#  pegasus_arch_alternatives 
+#  ( --list [pfx]  | 
+#    ( [ devel | test ] [ -64 ] [ -32 ] [ --remove ] [ --display ] ) 
+#  )
+#    no args  :  set up library and binary 'pegasus' alternatives
+#    --list   :  list 64/32-bit alternatives, with optional prefix pfx  
+#    devel    :  set up the 'pegasus-devel' alternative
+#    test     :  set up the 'pegasus-test' alternative
+#    -64      :  select 64-bit alternatives
+#    -32      :  select 32-bit alternatives
+#    --remove :  remove all pegasus alternatives
+#    --display:  display the pegasus alternatives
+#
+ALT='pegasus'
+LINK=/usr/sbin/cimserver
+SLAVES=(/usr/{bin/{cimmof,cimmofl,cimprovider,osinfo,wbemexec},sbin/{cimauth,cimconfig,cimprovagt,cimsub,cimuser,repupgrade}})
+DEVEL_LINK=/usr/share/Pegasus/samples/mak/config.mak 
+TEST_LINK=/usr/share/Pegasus/test/Makefile
+#
+# Handle listing arg:
+#
+if [ "$1" = '--list' ]; then
+    pfx='';
+    if [ $# -gt 1 ]; then
+	pfx=$2' ';
+    fi;
+    for f in $LINK ${SLAVES[@]} $DEVEL_LINK $TEST_LINK; do
+	echo ${pfx}$f;
+    done;
+    exit 0;
+fi
+#
+# Ensure that files and alternatives are correctly in-sync for architecture:
+#
+ARCH=`/bin/uname -i`
+case $ARCH in
+    # return for arches that have no alternatives
+    ia64 )
+	# nothing to be done - shipped without binary suffix
+	exit 0;
+	;;
+    i386 | ppc | s390 | sparc )
+	# shipped with -32 suffix, but no alternatives possible - move:
+    	for f in $LINK ${SLAVES[@]} $DEVEL_LINK $TEST_LINK; 
+	do
+	  if [ -f ${f}-32 ] ; then
+	      /bin/mv -f ${f}-32 $f; 
+	  fi;
+	done;
+	exit 0;
+	;;
+    x86_64 | ppc64 | s390x | sparc64 )
+	# continue
+	;;
+    *)
+	# unhandled architecture
+	exit 1;
+	;;
+esac;
+if [ "$1" = 'devel' ] || [ "$1" = 'test' ]; then
+    ALT='pegasus-'$1;
+    shift;
+    SLAVES=();
+    if [ "$ALT" = 'pegasus-devel' ]; then
+	LINK=$DEVEL_LINK;
+    else
+	LINK=$TEST_LINK;
+    fi;
+fi;
+#
+# Ensure that whatever alternatives can be installed, are installed,
+# and those that can't be installed are removed:
+#
+alternatives="`/usr/sbin/alternatives --display $ALT 2>/dev/null`";
+slaves64=''
+slaves32=''	    
+installed64=1;
+installed32=1;	
+for f in $LINK ${SLAVES[@]}; do
+    if [ $installed64 -eq 1 ] && [ -f ${f}-64 ]; then 
+	slaves64=${slaves64}'--slave '$f' '${f##*/}' '${f}-64' ';
+    else
+	installed64=0;
+	continue;
+    fi;
+    if [ $installed32 -eq 1 ] &&  [ -f ${f}-32 ]; then
+	slaves32=${slaves32}'--slave '$f' '${f##*/}' '${f}-32' ';
+    else
+	installed32=0;
+	continue;
+    fi;	    
+    if [ -e $f ] && [ ! -L $f ]; then
+	/bin/rm -f $f;
+    fi;
+done
+if [ $installed64 -eq 0 ]; then
+    /usr/sbin/alternatives --remove $ALT ${LINK}-64 >/dev/null 2>&1 || :;
+elif ! echo "$alternatives" | /bin/egrep -q "^${LINK}-64"; then
+    /usr/sbin/alternatives --install $LINK $ALT ${LINK}-64 50 $slaves64;
+fi;
+if [ $installed32 -eq 0 ]; then
+    /usr/sbin/alternatives --remove $ALT ${LINK}-32 >/dev/null 2>&1 || :;
+elif  ! echo "$alternatives" | /bin/egrep -q "^${LINK}-32"; then
+    /usr/sbin/alternatives --install $LINK $ALT ${LINK}-32 50 $slaves32;
+fi;
+#
+# Handle optional user args
+#
+if [ -n "$1" ]; then
+    case $1 in
+	-64 )
+	    if [ $installed64 -eq 1 ]; then
+		/usr/sbin/alternatives --set $ALT ${LINK}-64;
+		if [ "$ALT" = 'pegasus' ]; then
+		    /usr/sbin/alternatives --set pegasus-devel ${DEVEL_LINK}-64 >/dev/null 2>&1;
+    		    /usr/sbin/alternatives --set pegasus-test ${TEST_LINK}-64 >/dev/null 2>&1;
+		fi;
+	    fi
+	    ;;
+	-32 )
+	    if [ $installed32 -eq 1 ]; then
+		/usr/sbin/alternatives --set $ALT ${LINK}-32;
+    		if [ "$ALT" = 'pegasus' ]; then
+		    /usr/sbin/alternatives --set pegasus-devel ${DEVEL_LINK}-32 >/dev/null 2>&1;
+    		    /usr/sbin/alternatives --set pegasus-test ${TEST_LINK}-32 >/dev/null 2>&1;
+		fi;
+	    fi
+	    ;;
+	--remove )
+	    /usr/sbin/alternatives --remove $ALT ${LINK}-32 >/dev/null 2>&1;
+	    /usr/sbin/alternatives --remove $ALT ${LINK}-64 >/dev/null 2>&1;
+	    if [ "$ALT" = 'pegasus' ]; then
+		/usr/sbin/alternatives --remove pegasus-devel ${DEVEL_LINK}-32 >/dev/null 2>&1;
+		/usr/sbin/alternatives --remove pegasus-devel ${DEVEL_LINK}-64 >/dev/null 2>&1;
+    		/usr/sbin/alternatives --remove pegasus-test  ${TEST_LINK}-32 >/dev/null 2>&1;
+		/usr/sbin/alternatives --remove pegasus-test  ${TEST_LINK}-64 >/dev/null 2>&1;
+	    fi;
+	    ;;
+	--display )
+	    /usr/sbin/alternatives --display $ALT;
+	    if [ "$ALT" = 'pegasus' ]; then
+		/usr/sbin/alternatives --display pegasus-devel;
+    		/usr/sbin/alternatives --display pegasus-test;
+	    fi
+	    ;;
+	*)
+	    exit 1;	    
+	    ;;
+    esac;
+fi;
+exit 0;

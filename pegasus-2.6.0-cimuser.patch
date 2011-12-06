@@ -1,0 +1,10 @@
+--- pegasus.mark/Makefile.Release	2007-03-15 16:49:16.000000000 -0500
++++ pegasus/Makefile.Release	2007-03-15 16:50:52.000000000 -0500
+@@ -156,6 +156,7 @@
+ 
+ PEGASUS_ADMIN_CMDS = \
+    cimauth \
++   cimuser \
+    cimconfig \
+    cimserver \
+    cimprovagt \

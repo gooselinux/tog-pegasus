@@ -1,0 +1,121 @@
+--- pegasus/src/Pegasus/Server/Makefile_old	2007-11-08 10:57:26.000000000 +0100
++++ pegasus/src/Pegasus/Server/Makefile	2007-11-08 10:58:14.000000000 +0100
+@@ -34,6 +34,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ EXTRA_INCLUDES = $(SYS_INCLUDES)
+ 
+ LOCAL_DEFINES = -DPEGASUS_SERVER_INTERNAL -DPEGASUS_INTERNALONLY
+--- pegasus/src/Pegasus/ProviderManagerService/ProviderAgent/Makefile_old	2007-11-08 11:00:46.000000000 +0100
++++ pegasus/src/Pegasus/ProviderManagerService/ProviderAgent/Makefile	2007-11-08 11:01:03.000000000 +0100
+@@ -34,6 +34,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegpmservice \
+     pegprovidermanager \
+--- pegasus/src/Pegasus/Compiler/cmdline/cimmof/Makefile_old	2007-11-08 11:01:34.000000000 +0100
++++ pegasus/src/Pegasus/Compiler/cmdline/cimmof/Makefile	2007-11-08 11:01:57.000000000 +0100
+@@ -32,6 +32,8 @@
+ DIR = Pegasus/Compiler/cmdline/cimmof
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LOCAL_DEFINES = -DPEGASUS_CMDLINE_INTERNAL -DPEGASUS_INTERNALONLY
+ 
+ LIBRARIES = \
+--- pegasus/src/Pegasus/Compiler/cmdline/cimmofl/Makefile_old	2007-11-08 11:02:29.000000000 +0100
++++ pegasus/src/Pegasus/Compiler/cmdline/cimmofl/Makefile	2007-11-08 11:02:43.000000000 +0100
+@@ -32,6 +32,8 @@
+ DIR = Pegasus/Compiler/cmdline/cimmofl
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LOCAL_DEFINES = -DPEGASUS_INTERNALONLY
+ 
+ PROGRAM = cimmofl
+--- pegasus/src/Clients/cimconfig/Makefile_old	2007-11-08 11:03:43.000000000 +0100
++++ pegasus/src/Clients/cimconfig/Makefile	2007-11-08 11:04:03.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegcliutils \
+     pegclient \
+--- pegasus/src/Clients/cimprovider/Makefile_old	2007-11-08 11:04:16.000000000 +0100
++++ pegasus/src/Clients/cimprovider/Makefile	2007-11-08 11:04:30.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegcliutils \
+     pegclient \
+--- pegasus/src/Clients/cimuser/Makefile_old	2007-11-08 11:04:47.000000000 +0100
++++ pegasus/src/Clients/cimuser/Makefile	2007-11-08 11:05:02.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegcliutils \
+     pegclient \
+--- pegasus/src/Clients/wbemexec/Makefile_old	2007-11-08 11:05:25.000000000 +0100
++++ pegasus/src/Clients/wbemexec/Makefile	2007-11-08 11:05:49.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LOCAL_DEFINES = -DPEGASUS_INTERNALONLY
+ 
+ LIBRARIES = \
+--- pegasus/src/Clients/cimauth/Makefile_old	2007-11-08 11:06:04.000000000 +0100
++++ pegasus/src/Clients/cimauth/Makefile	2007-11-08 11:06:21.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegcliutils \
+     pegclient \
+--- pegasus/src/Clients/repupgrade/Makefile_old	2007-11-08 11:06:46.000000000 +0100
++++ pegasus/src/Clients/repupgrade/Makefile	2007-11-08 11:07:03.000000000 +0100
+@@ -36,6 +36,8 @@
+ 
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LOCAL_DEFINES = -DPEGASUS_INTERNALONLY
+ 
+ LIBRARIES = \
+--- pegasus/src/Clients/osinfo/Makefile_old	2007-11-08 11:07:15.000000000 +0100
++++ pegasus/src/Clients/osinfo/Makefile	2007-11-08 11:07:29.000000000 +0100
+@@ -35,6 +35,8 @@
+ DIR = Clients/osinfo
+ include $(ROOT)/mak/config.mak
+ 
++FLAGS := $(FLAGS:-fPIC=-fPIE)
++
+ LIBRARIES = \
+     pegcliutils \
+     peggetoopt \

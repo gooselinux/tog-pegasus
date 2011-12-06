@@ -1,0 +1,25 @@
+diff -up pegasus/Makefile.ReleaseTest_old pegasus/Makefile.ReleaseTest
+--- pegasus/Makefile.ReleaseTest_old	2008-12-16 19:55:33.000000000 +0100
++++ pegasus/Makefile.ReleaseTest	2009-06-08 16:13:17.000000000 +0200
+@@ -195,7 +195,7 @@ create_Makefile:
+ 
+ createMakefile_providerlinks:
+ 	@$(ECHO-E) "create_providerlinks:" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+-	@$(foreach i, $(PEGASUS_TEST_PROVIDERS), $(ECHO-E) "\t@$(MAKE) createlink OBJECT=$(PEGASUS_TEST_DIR)/$(PEGASUS_ARCH_LIB)/$(i)$(LIB_SUFFIX) LINKNAME=$(PEGASUS_PROVIDER_LIB_DIR)/$(i)$(LIB_LINK_SUFFIX)" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile ;)
++	@$(foreach i, $(PEGASUS_TEST_PROVIDERS), $(ECHO-E) "\t@$(MAKE) createlink OBJECT=$(PEGASUS_TEST_DIR)/lib/$(i)$(LIB_SUFFIX) LINKNAME=$(PEGASUS_PROVIDER_LIB_DIR)/$(i)$(LIB_LINK_SUFFIX)" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile ;)
+ 	@$(ECHO-E) "" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 	@$(ECHO-E) "remove_providerlinks:" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 	@$(foreach i, $(PEGASUS_TEST_PROVIDERS), $(ECHO-E) "\trm -f $(PEGASUS_PROVIDER_LIB_DIR)/$(i)$(LIB_LINK_SUFFIX)" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile ;)
+@@ -238,8 +238,10 @@ createMakefile_tests:
+ 	@$(ECHO-E) "tests:" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 	@$(ECHO-E) "\t@$(MAKE) -i cimstop" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 	@$(ECHO-E) "\t@$(MAKE) prestarttests" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+-	@$(ECHO-E) "\t@$(MAKE) runTestSuite CIMSERVER_CONFIG_OPTIONS=\"$(TESTSUITE_CONFIG_1)\" TESTSUITE_CMDS=\"$(TESTSUITE_CMDS_1)\"" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+-	@$(ECHO-E) "\t@$(MAKE) runTestSuite CIMSERVER_CONFIG_OPTIONS=\"$(TESTSUITE_CONFIG_2)\" TESTSUITE_CMDS=\"$(TESTSUITE_CMDS_2)\"" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
++	@$(ECHO-E) "\t@$(MAKE) setupTEST" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
++	@$(ECHO-E) "\t@$(MAKE) runTestSuite CIMSERVER_CONFIG_OPTIONS=\"$(TESTSUITE_CONFIG_1)\" TESTSUITE_CMDS=\"$(TESTSUITE_CMDS_1)\" || { $(MAKE) unsetupTEST; exit 1; }" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
++	@$(ECHO-E) "\t@$(MAKE) runTestSuite CIMSERVER_CONFIG_OPTIONS=\"$(TESTSUITE_CONFIG_2)\" TESTSUITE_CMDS=\"$(TESTSUITE_CMDS_2)\" || { $(MAKE) unsetupTEST; exit 1; }" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
++	@$(ECHO-E) "\t@$(MAKE) unsetupTEST" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 	@$(ECHO-E) "" >> $(PEGASUS_STAGING_DIR)$(PEGASUS_TEST_DIR)/Makefile
+ 
+ createMakefile_testsWithSetupAndUnsetup:
